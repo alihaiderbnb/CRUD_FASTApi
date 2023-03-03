@@ -2,17 +2,20 @@ from sqlalchemy.orm import Session
 import models, schemas
 
 
+
+#get user
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
-
+#by email
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
-
+#list
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
+#create user
 
 def create_user(db: Session, user: schemas.UserCreate):
     fake_hashed_password = user.password + "notreallyhashed"
@@ -22,6 +25,8 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.refresh(db_user)
     return db_user
 
+
+#del user
 
 def del_user(db:Session,email:str):
     response = db.query(models.User).filter(models.User.email==email).first()
