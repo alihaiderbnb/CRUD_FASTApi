@@ -5,10 +5,13 @@ import crud, models, schemas
 from database import SessionLocal, engine
 
 from fastapi.security import OAuth2PasswordBearer
+from passlib.hash import bcrypt
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+#pwd_context= CryptContext(schemes=["bcrypt"], deprecated='auto')
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -22,15 +25,37 @@ def get_db():
         db.close()
 
 
+def verify_password(plain_password, hashed_password):
+    return bcrypt.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password):
+    return bcrypt.hash(password)
+
+
 #create user
 @app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_email(db, email=user.email)
+def create_user(myuser: schemas.UserCreate, db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_email(db, email=myuser.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    return crud.create_user(db=db, user=user)
+    
+    myuser.password = get_password_hash(myuser.password)
+    return crud.create_user(db=db, user=myuser)
 
-#get multiple users
+#login
+@app.post("/user/login", response_model=schemas.User)
+def login_user(myuser: schemas.UserCreate, db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_email(db, email=myuser.email)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="No user exist")
+    verify_password(myuser.password, db_user.hashed_password)
+    return db_user
+   
+
+
+    
+
 
 @app.get("/users/", response_model=list[schemas.User])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -39,7 +64,7 @@ def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 
 # get single user by id
 @app.get("/users/{user_id}", response_model=schemas.User)
-def read_user(user_id: int, db: Session = Depends(oauth2_scheme,get_db)):
+def read_user(user_id: int, db: Session = Depends(get_db)):
     #Now here we will call a fucntion
     ##to decode the token
     ## that function will decode the token retrive the information
